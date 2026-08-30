@@ -7,6 +7,40 @@ SAMPLER2D_AUTOREG(s_MatTexture);
 SAMPLER2D_AUTOREG(s_SeasonsTexture);
 SAMPLER2D_AUTOREG(s_LightMapTexture);
 
+
+// ============================================================
+// CINEMATIC CHUNK LIGHTING
+// Soft Minecraft-trailer style lighting grade.
+// Keeps nlLighting() as the real light source, then adds a
+// subtle ambient lift + warm highlight response.
+// ============================================================
+
+vec3 cinematicChunkLighting(vec3 color, vec2 lightUV) {
+  // Lightmap-derived sky/ambient level.
+  float skyLight = clamp(lightUV.y, 0.0, 1.0);
+  float blockLight = clamp(lightUV.x, 0.0, 1.0);
+
+  // Lift dark areas without washing out the night.
+  float ambientLift = 0.045 + skyLight * 0.055;
+
+  // Soft local-light response.
+  float localLight = smoothstep(0.25, 0.95, blockLight);
+
+  // Warm highlights similar to golden-hour Minecraft renders.
+  vec3 warm = vec3(1.045, 1.015, 0.965);
+  float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
+  float highlight = smoothstep(0.35, 0.90, luminance) * (0.20 + 0.25 * skyLight);
+
+  color += color * ambientLift;
+  color *= mix(vec3_splat(1.0), warm, highlight * (0.55 + 0.25 * localLight));
+
+  // Gentle contrast: preserve blacks while giving lit blocks more depth.
+  color = mix(vec3_splat(0.0), color, 0.985);
+  color *= 1.025;
+
+  return color;
+}
+
 void main() {
   #if defined(DEPTH_ONLY_OPAQUE) || defined(DEPTH_ONLY) || defined(INSTANCING)
     gl_FragColor = vec4(1.0,1.0,1.0,1.0);
@@ -54,9 +88,14 @@ void main() {
     }
   }
 
+  // Cinematic lighting pass: after real chunk lighting/reflections,
+  // before fog so distant fog keeps its own sky color.
+  diffuse.rgb = cinematicChunkLighting(diffuse.rgb, v_lightmapUV);
+
   diffuse.rgb = mix(diffuse.rgb, v_fog.rgb, v_fog.a);
 
   diffuse.rgb = colorCorrection(diffuse.rgb);
 
   gl_FragColor = diffuse;
 }
+
