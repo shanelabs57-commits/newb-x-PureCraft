@@ -92,7 +92,7 @@ void main() {
         color.a *= NL_CLOUD1_OPACITY;
 
         #ifdef NL_AURORA
-          color += renderAurora(cloudPos, t, rain, 0.0)*(1.0-color.a).rgb;
+          color += renderAurora(cloudPos, t, rain, FogColor.rgb)*(1.0-color.a);
         #endif
 
         color.a *= fade;
