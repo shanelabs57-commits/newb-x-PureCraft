@@ -16,33 +16,44 @@
 void main() {
 #ifndef INSTANCING
 
+  // Underwater
   v_underwaterRainTimeDay.x =
     float(detectUnderwater(
       FogColor.rgb,
       FogAndDistanceControl.xy
     ));
 
+  // Rain
   v_underwaterRainTimeDay.y =
     detectRain(FogAndDistanceControl.xyz);
 
+  // Shader time
   v_underwaterRainTimeDay.z =
     ViewPositionAndTime.w;
 
+  // Day factor
   v_underwaterRainTimeDay.w =
     detectDayFactor(FogColor.rgb);
 
-  // Full-screen background quad.
+  // Full-screen sky quad
   vec4 pos = vec4(a_position.xzy, 1.0);
-  pos.xy = 2.0 * clamp(pos.xy, -0.5, 0.5);
 
-  v_worldPos = mul(u_invViewProj, pos).xyz;
+  pos.xy = 2.0 * clamp(
+    pos.xy,
+    -0.5,
+    0.5
+  );
+
+  // World direction
+  v_worldPos =
+    mul(u_invViewProj, pos).xyz;
 
   gl_Position = pos;
 
 #else
 
-  gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
+  gl_Position =
+    vec4(0.0, 0.0, 0.0, 0.0);
 
 #endif
 }
-
