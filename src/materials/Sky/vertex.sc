@@ -3,27 +3,23 @@ $output v_worldPos, v_underwaterRainTimeDay
 
 #include <bgfx_shader.sh>
 
-#include <newb/main.sh>
+#ifndef INSTANCING
+  #include <newb/main.sh>
 
-uniform vec4 FogColor;
-uniform vec4 FogAndDistanceControl;
-uniform vec4 ViewPositionAndTime;
+  uniform vec4 FogColor;
+  uniform vec4 FogAndDistanceControl;
+  uniform vec4 ViewPositionAndTime;
+#endif
 
 void main() {
 
 #ifndef INSTANCING
 
-  // ----------------------------------------------------------
-  // Environment data
-  // ----------------------------------------------------------
-
   v_underwaterRainTimeDay.x =
-    float(
-      detectUnderwater(
-        FogColor.rgb,
-        FogAndDistanceControl.xy
-      )
-    );
+    float(detectUnderwater(
+      FogColor.rgb,
+      FogAndDistanceControl.xy
+    ));
 
   v_underwaterRainTimeDay.y =
     detectRain(
@@ -38,25 +34,19 @@ void main() {
       FogColor.rgb
     );
 
-  // ----------------------------------------------------------
   // Full-screen sky quad
-  // ----------------------------------------------------------
-
-  vec4 pos =
-    vec4(
-      a_position.xzy,
-      1.0
-    );
+  vec4 pos = vec4(
+    a_position.xzy,
+    1.0
+  );
 
   pos.xy =
-    2.0 *
-    clamp(
+    2.0 * clamp(
       pos.xy,
       -0.5,
       0.5
     );
 
-  // Reconstruct world-space direction.
   v_worldPos =
     mul(
       u_invViewProj,
