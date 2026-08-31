@@ -1,59 +1,79 @@
-#ifndef INSTANCING
-  $input a_color0, a_position
-  $output v_worldPos, v_underwaterRainTimeDay
-#endif
+$input a_color0, a_position
+$output v_worldPos, v_underwaterRainTimeDay
 
 #include <bgfx_shader.sh>
 
-#ifndef INSTANCING
-  #include <newb/main.sh>
+#include <newb/main.sh>
 
-  uniform vec4 FogColor;
-  uniform vec4 FogAndDistanceControl;
-  uniform vec4 ViewPositionAndTime;
-#endif
+uniform vec4 FogColor;
+uniform vec4 FogAndDistanceControl;
+uniform vec4 ViewPositionAndTime;
 
 void main() {
+
 #ifndef INSTANCING
 
-  // Underwater
+  // ----------------------------------------------------------
+  // Environment data
+  // ----------------------------------------------------------
+
   v_underwaterRainTimeDay.x =
-    float(detectUnderwater(
-      FogColor.rgb,
-      FogAndDistanceControl.xy
-    ));
+    float(
+      detectUnderwater(
+        FogColor.rgb,
+        FogAndDistanceControl.xy
+      )
+    );
 
-  // Rain
   v_underwaterRainTimeDay.y =
-    detectRain(FogAndDistanceControl.xyz);
+    detectRain(
+      FogAndDistanceControl.xyz
+    );
 
-  // Shader time
   v_underwaterRainTimeDay.z =
     ViewPositionAndTime.w;
 
-  // Day factor
   v_underwaterRainTimeDay.w =
-    detectDayFactor(FogColor.rgb);
+    detectDayFactor(
+      FogColor.rgb
+    );
 
+  // ----------------------------------------------------------
   // Full-screen sky quad
-  vec4 pos = vec4(a_position.xzy, 1.0);
+  // ----------------------------------------------------------
 
-  pos.xy = 2.0 * clamp(
-    pos.xy,
-    -0.5,
-    0.5
-  );
+  vec4 pos =
+    vec4(
+      a_position.xzy,
+      1.0
+    );
 
-  // World direction
+  pos.xy =
+    2.0 *
+    clamp(
+      pos.xy,
+      -0.5,
+      0.5
+    );
+
+  // Reconstruct world-space direction.
   v_worldPos =
-    mul(u_invViewProj, pos).xyz;
+    mul(
+      u_invViewProj,
+      pos
+    ).xyz;
 
   gl_Position = pos;
 
 #else
 
   gl_Position =
-    vec4(0.0, 0.0, 0.0, 0.0);
+    vec4(
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    );
 
 #endif
 }
