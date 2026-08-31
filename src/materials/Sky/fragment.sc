@@ -1,228 +1,307 @@
 #ifndef INSTANCING
-  $input v_fogColor, v_worldPos, v_underwaterRainTimeDay, v_position
+  $input v_worldPos, v_underwaterRainTimeDay
 #endif
 
 #include <bgfx_shader.sh>
 
 #ifndef INSTANCING
   #include <newb/main.sh>
-#endif
-
-uniform vec4 FogColor;
-uniform vec4 ViewPositionAndTime;
-uniform vec4 TimeOfDay;
-
-#ifndef INSTANCING
-  SAMPLER2D_AUTOREG(s_noisevoxels);
+  uniform vec4 TimeOfDay;
+  uniform vec4 FogColor;
 #endif
 
 
 // ============================================================
-// Deep Blue Aurora
-// Custom Aurora inspired by Unbound-style flowing ribbons.
-// Uses noisevoxels for the animated shape.
+// GOLDEN SKY
 // ============================================================
 
-float auroraPow2(float x) {
-  return x * x;
-}
-
-float auroraClamp01(float x) {
-  return clamp(x, 0.0, 1.0);
-}
-
-float auroraSqrt(float x) {
-  return sqrt(max(x, 0.0));
-}
-
-
-vec3 GetDeepBlueAurora(
-  vec3 vDir,
-  float time,
-  float dither
+vec3 goldenSky(
+  vec3 skyColor,
+  float dayFactor,
+  float viewY
 ) {
-
-  // Sky visibility.
-  float VdotU = clamp(vDir.y, 0.0, 1.0);
-
-  float visibility =
-    auroraSqrt(
-      auroraClamp01(
-        VdotU * 4.5 - 0.225
-      )
+  float day =
+    smoothstep(
+      0.05,
+      0.95,
+      dayFactor
     );
 
-  visibility *= 4.0 - VdotU * 0.9;
+  vec3 warmSun =
+    vec3(
+      1.075,
+      0.965,
+      0.885
+    );
 
-  if (visibility <= 1.0)
+  vec3 nightLift =
+    vec3(
+      1.035,
+      1.025,
+      1.055
+    );
+
+  skyColor *=
+    mix(
+      nightLift,
+      warmSun,
+      day
+    );
+
+  float horizon =
+    1.0 -
+    smoothstep(
+      0.05,
+      0.85,
+      abs(viewY)
+    );
+
+  float goldenMask =
+    day *
+    (
+      0.35 +
+      0.65 *
+      horizon
+    );
+
+  skyColor +=
+    vec3(
+      0.045,
+      0.018,
+      -0.005
+    ) *
+    goldenMask;
+
+  skyColor *=
+    1.0 +
+    0.035 *
+    day;
+
+  return skyColor;
+}
+
+
+// ============================================================
+// DEEP BLUE AURORA
+// ============================================================
+
+vec3 deepBlueAurora(
+  vec3 viewDir,
+  float time,
+  float dayFactor,
+  float rainFactor
+) {
+
+  // Aurora only at night.
+  float night =
+    1.0 -
+    smoothstep(
+      0.05,
+      0.35,
+      dayFactor
+    );
+
+
+  // Aurora is strongest above the horizon.
+  float height =
+    smoothstep(
+      0.02,
+      0.32,
+      viewDir.y
+    );
+
+
+  // Fade toward very high sky.
+  float upperFade =
+    1.0 -
+    smoothstep(
+      0.72,
+      1.0,
+      viewDir.y
+    );
+
+
+  float visibility =
+    height *
+    upperFade *
+    night;
+
+
+  // Rain suppresses aurora.
+  visibility *=
+    1.0 -
+    0.75 *
+    rainFactor;
+
+
+  if (visibility <= 0.001)
     return vec3(0.0);
 
 
-  vec3 aurora = vec3(0.0);
-
-  vec3 wpos = vDir;
-
-  wpos.xz /= max(wpos.y, 0.1);
-
-
-  // Horizontal movement.
-  vec2 cameraPosM = vec2(0.0);
-
-  cameraPosM.x += time * 10.0;
+  // Project the sky direction onto a flat sky plane.
+  vec2 p =
+    viewDir.xz /
+    max(
+      viewDir.y,
+      0.08
+    );
 
 
-  const int sampleCount = 10;
-  const int sampleCountP = sampleCount + 10;
+  // Slow horizontal movement.
+  p.x +=
+    time *
+    0.012;
 
 
-  float ditherM = dither + 10.0;
+  // Flowing wave layers.
+  float wave1 =
+    sin(
+      p.x * 2.2 +
+      sin(p.x * 0.75) * 1.8 +
+      time * 0.35
+    );
 
 
-  // Keep the animation smooth.
-  float auroraAnimate = time * 0.35;
+  float wave2 =
+    sin(
+      p.x * 4.7 -
+      time * 0.22 +
+      sin(p.x * 1.3) * 1.2
+    );
 
 
-  for (int i = 0; i < sampleCount; i++) {
-
-    float current =
-      auroraPow2(
-        (float(i) + ditherM) /
-        float(sampleCountP)
-      );
+  float wave3 =
+    sin(
+      p.x * 8.0 +
+      time * 0.16
+    );
 
 
-    vec2 planePos =
-      wpos.xz *
-      (0.8 + current) *
-      10.0 +
-      cameraPosM;
+  // Combine waves.
+  float waves =
+    wave1 * 0.55 +
+    wave2 * 0.30 +
+    wave3 * 0.15;
 
 
-    planePos *= 0.0007;
+  // Convert waves into narrow aurora bands.
+  float bands =
+    smoothstep(
+      0.18,
+      0.82,
+      waves * 0.5 + 0.5
+    );
 
 
-    // Main large-scale noise.
-    float noise =
-      texture2D(
-        s_noisevoxels,
-        planePos
-      ).r;
+  // Vertical aurora movement.
+  float vertical =
+    sin(
+      p.x * 1.5 +
+      time * 0.25
+    ) *
+    0.10;
 
 
-    noise =
-      auroraPow2(
-        auroraPow2(
-          auroraPow2(
-            auroraPow2(
-              1.0 -
-              0.8 *
-              abs(noise - 0.5)
-            )
-          )
-        )
-      );
+  float ribbon =
+    smoothstep(
+      0.15,
+      0.85,
+      viewDir.y +
+      vertical
+    );
 
 
-    // Medium movement.
-    noise *=
-      texture2D(
-        s_noisevoxels,
-        planePos * 8.0 +
-        auroraAnimate
-      ).b;
+  float intensity =
+    bands *
+    ribbon *
+    visibility;
 
 
-    // Fine movement.
-    noise *=
-      texture2D(
-        s_noisevoxels,
-        planePos -
-        auroraAnimate
-      ).g;
+  // ----------------------------------------------------------
+  // DEEP BLUE COLOR
+  // ----------------------------------------------------------
+
+  vec3 darkBlue =
+    vec3(
+      0.008,
+      0.025,
+      0.16
+    );
+
+  vec3 royalBlue =
+    vec3(
+      0.025,
+      0.16,
+      0.75
+    );
+
+  vec3 electricBlue =
+    vec3(
+      0.08,
+      0.42,
+      1.35
+    );
 
 
-    float currentM =
-      1.0 - current;
+  // Main deep-blue gradient.
+  vec3 auroraColor =
+    mix(
+      darkBlue,
+      royalBlue,
+      intensity
+    );
 
 
-    // ========================================================
-    // Deep Blue Aurora Color
-    // ========================================================
-
-    vec3 deepBlue =
-      vec3(
-        0.015,
-        0.08,
-        0.65
-      );
-
-
-    vec3 brightBlue =
-      vec3(
-        0.05,
-        0.45,
-        1.0
-      );
+  // Brighter blue highlights.
+  auroraColor =
+    mix(
+      auroraColor,
+      electricBlue,
+      intensity *
+      intensity *
+      0.65
+    );
 
 
-    vec3 auroraColor =
-      mix(
-        deepBlue,
-        brightBlue,
-        auroraPow2(
-          auroraPow2(currentM)
-        )
-      );
+  // Soft luminous strength.
+  auroraColor *=
+    intensity *
+    1.35;
 
 
-    aurora +=
-      noise *
-      currentM *
-      auroraColor;
-  }
-
-
-  // Overall Aurora strength.
-  aurora *= 3.0;
-
-
-  return
-    aurora *
-    visibility /
-    float(sampleCount);
+  return auroraColor;
 }
 
 
 // ============================================================
-// Main
+// MAIN
 // ============================================================
 
 void main() {
 
 #ifndef INSTANCING
 
-  // ----------------------------------------------------------
-  // View direction
-  // ----------------------------------------------------------
-
   vec3 viewDir =
-    normalize(v_worldPos);
-
-  vec3 skyDir =
-    normalize(-viewDir);
+    normalize(
+      v_worldPos
+    );
 
 
   // ----------------------------------------------------------
-  // Environment
+  // ENVIRONMENT
   // ----------------------------------------------------------
 
   nl_environment env;
 
-  env.end = false;
-  env.nether = false;
+  env.end =
+    false;
+
+  env.nether =
+    false;
 
   env.underwater =
-    v_underwaterRainTimeDay.x > 0.5;
+    v_underwaterRainTimeDay.x >
+    0.5;
 
   env.rainFactor =
     v_underwaterRainTimeDay.y;
@@ -234,10 +313,7 @@ void main() {
     FogColor.rgb;
 
 
-  // ----------------------------------------------------------
-  // Normal Newb sky calculation
-  // ----------------------------------------------------------
-
+  // Normal Newb environment.
   env =
     calculateSunParams(
       env,
@@ -245,100 +321,57 @@ void main() {
     );
 
 
+  // ----------------------------------------------------------
+  // BASE SKY
+  // ----------------------------------------------------------
+
   nl_skycolor skycol =
-    nlOverworldSkyColors(env);
+    nlOverworldSkyColors(
+      env
+    );
 
 
   vec3 skyColor =
     nlRenderSky(
       skycol,
       env,
-      skyDir,
+      -viewDir,
       v_underwaterRainTimeDay.z,
       true
     );
 
 
   // ----------------------------------------------------------
-  // Deep Blue Aurora
+  // GOLDEN HOUR
   // ----------------------------------------------------------
 
-  float dither =
-    fract(
-      sin(
-        dot(
-          gl_FragCoord.xy,
-          vec2(
-            12.9898,
-            78.233
-          )
-        )
-      ) *
-      43758.5453
+  skyColor =
+    goldenSky(
+      skyColor,
+      env.dayFactor,
+      viewDir.y
     );
 
 
-  float auroraTime =
-    ViewPositionAndTime.w;
-
+  // ----------------------------------------------------------
+  // DEEP BLUE AURORA
+  // ----------------------------------------------------------
 
   vec3 aurora =
-    GetDeepBlueAurora(
-      skyDir,
-      auroraTime,
-      dither
+    deepBlueAurora(
+      viewDir,
+      v_underwaterRainTimeDay.z,
+      env.dayFactor,
+      env.rainFactor
     );
 
 
-  // ----------------------------------------------------------
-  // Aurora visibility
-  // Night only.
-  // Fade during sunrise/sunset and rain.
-  // ----------------------------------------------------------
-
-  float nightMask =
-    smoothstep(
-      0.05,
-      0.85,
-      1.0 - env.dayFactor
-    );
-
-
-  float rainMask =
-    1.0 -
-    clamp(
-      env.rainFactor,
-      0.0,
-      1.0
-    );
-
-
-  float horizonMask =
-    smoothstep(
-      0.0,
-      0.75,
-      skyDir.y
-    );
-
-
-  float auroraMask =
-    nightMask *
-    rainMask *
-    horizonMask;
-
-
-  aurora *= auroraMask;
+  skyColor +=
+    aurora;
 
 
   // ----------------------------------------------------------
-  // Add Aurora to the normal Newb sky.
-  // ----------------------------------------------------------
-
-  skyColor += aurora;
-
-
-  // ----------------------------------------------------------
-  // Shooting stars
+  // OPTIONAL SHOOTING STARS
   // ----------------------------------------------------------
 
 #ifdef NL_SHOOTING_STAR
@@ -346,7 +379,7 @@ void main() {
   skyColor +=
     NL_SHOOTING_STAR *
     nlRenderShootingStar(
-      skyDir,
+      viewDir,
       env.fogCol,
       v_underwaterRainTimeDay.z
     );
@@ -355,7 +388,7 @@ void main() {
 
 
   // ----------------------------------------------------------
-  // Galaxy
+  // OPTIONAL GALAXY
   // ----------------------------------------------------------
 
 #ifdef NL_GALAXY_STARS
@@ -363,7 +396,7 @@ void main() {
   skyColor +=
     NL_GALAXY_STARS *
     nlRenderGalaxy(
-      skyDir,
+      viewDir,
       env.fogCol,
       env,
       v_underwaterRainTimeDay.z
@@ -373,7 +406,7 @@ void main() {
 
 
   // ----------------------------------------------------------
-  // Final color correction
+  // COLOR CORRECTION
   // ----------------------------------------------------------
 
   skyColor =
@@ -381,6 +414,10 @@ void main() {
       skyColor
     );
 
+
+  // ----------------------------------------------------------
+  // OUTPUT
+  // ----------------------------------------------------------
 
   gl_FragColor =
     vec4(
@@ -400,5 +437,4 @@ void main() {
     );
 
 #endif
-
 }
