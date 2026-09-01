@@ -1,4 +1,5 @@
 #ifndef SKY_H
+#define SKY_H
 #include "detection.h"
 #include "noise.h"
 
@@ -65,7 +66,7 @@ vec3 nlRenderAurora(vec3 v,nl_environment e,float t){
   float wave=.5+.5*sin(p.x*4.+n0*5.+t*.045);
   float c=smoothstep(.28,.72,wave+n1*.35-n2*.18);
   c*=smoothstep(.08,.35,up)*(1.-smoothstep(.72,1.,up))*(.45+.55*n2);
-  vec3 col=mix(vec3(.035,.08,.55),vec3(.08,.45,2.8),smoothstep(.25,.9,c));
+  vec3 col=mix(NL_AURORA_COL1,NL_AURORA_COL2,smoothstep(.25,.9,c));
   return col*(.55+1.65*c*c)*vis*night*rain*1.35;
 }
 
