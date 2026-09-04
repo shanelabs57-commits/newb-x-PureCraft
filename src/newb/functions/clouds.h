@@ -108,7 +108,6 @@ float cloudDf(
     u.y
   );
 
-  // round y
   n *=
     1.0 -
     1.5*
@@ -154,9 +153,6 @@ vec4 renderCloudsRounded(
 
   float stepsf = float(steps);
 
-
-  // scaled ray offset
-
   vec3 deltaP;
 
   deltaP.y = 1.0;
@@ -166,9 +162,6 @@ vec4 renderCloudsRounded(
     scale*
     vDir.xz/
     (0.02+0.98*abs(vDir.y));
-
-
-  // local cloud position
 
   vec3 pos;
 
@@ -185,9 +178,6 @@ vec4 renderCloudsRounded(
   pos += deltaP;
 
   deltaP /= -stepsf;
-
-
-  // alpha and gradient
 
   vec2 d = vec2(0.0,1.0);
 
@@ -212,7 +202,6 @@ vec4 renderCloudsRounded(
     pos += deltaP;
   }
 
-
   d.x *= smoothstep(
     0.03,
     0.1,
@@ -223,7 +212,6 @@ vec4 renderCloudsRounded(
     (stepsf/density) +
     d.x;
 
-
   if (vPos.y < 0.0) {
 
     d.y =
@@ -231,14 +219,12 @@ vec4 renderCloudsRounded(
       d.y;
   }
 
-
   vec4 col =
     vec4(
       zenithCol +
       horizonCol,
       d.x
     );
-
 
   col.rgb +=
     dot(
@@ -248,11 +234,9 @@ vec4 renderCloudsRounded(
     d.y*
     d.y;
 
-
   col.rgb *=
     1.0 -
     0.8*rain;
-
 
   return col;
 }
@@ -313,9 +297,6 @@ vec4 renderClouds(
   p *= scale;
   t *= velocity;
 
-
-  // layer 1
-
   float a =
     cloudsNoiseVr(
       p,
@@ -330,15 +311,11 @@ vec4 renderClouds(
       t
     );
 
-
-  // layer 2
-
   p =
     1.4*p.yx +
     vec2(7.8,9.2);
 
   t *= 0.5;
-
 
   float c =
     cloudsNoiseVr(
@@ -354,11 +331,9 @@ vec4 renderClouds(
       t
     );
 
-
   vec2 tr =
     vec2(0.6,0.7) -
     0.12*rain;
-
 
   a =
     smoothstep(
@@ -374,9 +349,6 @@ vec4 renderClouds(
       c
     );
 
-
-  // shadows
-
   b *=
     smoothstep(
       0.2,
@@ -391,18 +363,15 @@ vec4 renderClouds(
       d
     );
 
-
   vec4 col;
 
   col.a =
     a +
     c*(1.0-a);
 
-
   col.rgb =
     horizonCol +
     horizonCol.ggg;
-
 
   col.rgb =
     mix(
@@ -420,11 +389,9 @@ vec4 renderClouds(
       )
     );
 
-
   col.rgb *=
     1.0 -
     0.7*rain;
-
 
   return col;
 }
@@ -435,13 +402,6 @@ vec4 renderClouds(
 // ============================================================================
 
 #ifdef NL_AURORA
-
-/*
- * IMPORTANT:
- *
- * noisevoxels must be correctly connected to the Aurora noise texture
- * in the shader resource / fragment.sc.json system.
- */
 
 uniform sampler2D noisevoxels;
 
@@ -478,7 +438,6 @@ vec3 getAurora(
       1.0
     );
 
-
   float visibility =
     auroraSqrt(
       auroraClamp01(
@@ -487,7 +446,6 @@ vec3 getAurora(
       )
     );
 
-
   visibility *=
     4.0 -
     VdotU*0.9;
@@ -495,12 +453,20 @@ vec3 getAurora(
 
   if (visibility <= 1.0) {
 
-    return vec3(0.0);
+    return vec3(
+      0.0,
+      0.0,
+      0.0
+    );
   }
 
 
   vec3 aurora =
-    vec3(0.0);
+    vec3(
+      0.0,
+      0.0,
+      0.0
+    );
 
 
   vec3 wpos =
@@ -517,7 +483,10 @@ vec3 getAurora(
   // Aurora movement
 
   vec2 cameraPosM =
-    vec2(0.0);
+    vec2(
+      0.0,
+      0.0
+    );
 
 
   cameraPosM.x +=
@@ -573,16 +542,12 @@ vec3 getAurora(
       0.0007;
 
 
-    // Main noise texture
-
     float noise =
       texture2D(
         noisevoxels,
         planePos
       ).r;
 
-
-    // Aurora curtain sharpening
 
     noise =
       auroraPow2(
@@ -601,13 +566,18 @@ vec3 getAurora(
       );
 
 
-    // Secondary texture layers
+    vec2 auroraOffset =
+      vec2(
+        auroraAnimate,
+        auroraAnimate
+      );
+
 
     noise *=
       texture2D(
         noisevoxels,
         planePos*8.0+
-        auroraAnimate
+        auroraOffset
       ).b;
 
 
@@ -615,7 +585,7 @@ vec3 getAurora(
       texture2D(
         noisevoxels,
         planePos-
-        auroraAnimate
+        auroraOffset
       ).g;
 
 
@@ -623,10 +593,6 @@ vec3 getAurora(
       1.0-
       current;
 
-
-    // ======================================================================
-    // DEEP BLUE AURORA COLORS
-    // ======================================================================
 
     vec3 auroraDark =
       vec3(
@@ -689,10 +655,6 @@ vec4 renderAurora(
   float dayFactor
 ) {
 
-  /*
-   * Existing NEWB X controls.
-   */
-
   t *=
     NL_AURORA_VELOCITY;
 
@@ -704,10 +666,6 @@ vec4 renderAurora(
   vec3 vDir =
     normalize(p);
 
-
-  /*
-   * Stable pseudo-dither.
-   */
 
   float dither =
     fract(
@@ -733,22 +691,21 @@ vec4 renderAurora(
 
 
   /*
-   * Night mask.
+   * NIGHT MASK
+   *
+   * Compatible with NEWB's dayFactor.
    */
 
   float mask =
-    max(
-      -dayFactor,
-      0.0
+    smoothstep(
+      0.2,
+      -0.2,
+      dayFactor
     );
 
 
-  mask *=
-    mask;
-
-
   /*
-   * Rain reduces Aurora visibility.
+   * Rain reduces aurora visibility.
    */
 
   mask *=
@@ -756,18 +713,10 @@ vec4 renderAurora(
     0.8*rain;
 
 
-  /*
-   * Apply original NEWB Aurora intensity.
-   */
-
   aurora *=
     NL_AURORA*
     mask;
 
-
-  /*
-   * Alpha used for blending/reflections.
-   */
 
   float alpha =
     clamp(
@@ -848,11 +797,7 @@ vec4 nlCloudAuroraReflection(
         cloudPos.xyy,
         t,
         env.rainFactor,
-        smoothstep(
-          0.2,
-          -0.2,
-          env.dayFactor
-        )
+        env.dayFactor
       );
 
 
