@@ -1,210 +1,62 @@
-$input v_color, v_texcoord0, v_lightmapUV
+$input v_color0, v_color1, v_fog, v_refl, v_texcoord0, v_lightmapUV, v_extra
 
 #include <bgfx_shader.sh>
 #include <newb/main.sh>
 
 SAMPLER2D_AUTOREG(s_MatTexture);
 SAMPLER2D_AUTOREG(s_SeasonsTexture);
-
-
-// ============================================================
-// GOLDEN HOUR LIGHTING
-// ============================================================
-
-vec3 goldenHourLighting(
-    vec3 color,
-    vec2 lightUV
-) {
-
-    float skyLight =
-        clamp(
-            lightUV.y,
-            0.0,
-            1.0
-        );
-
-    float day =
-        smoothstep(
-            0.30,
-            0.85,
-            skyLight
-        );
-
-    // Warm sunlight
-    vec3 warmSun =
-        vec3(
-            1.075,
-            0.985,
-            0.900
-        );
-
-    // Slightly brighter night
-    vec3 nightLift =
-        vec3(
-            1.045,
-            1.035,
-            1.015
-        );
-
-    color *=
-        mix(
-            nightLift,
-            warmSun,
-            day
-        );
-
-    float night =
-        1.0 -
-        day;
-
-    // Small night brightness boost
-    color *=
-        1.0 +
-        0.075 *
-        night;
-
-    // Small daytime brightness boost
-    color *=
-        1.0 +
-        0.035 *
-        day;
-
-    // Cinematic warmth
-    float luminance =
-        dot(
-            color,
-            vec3(
-                0.2126,
-                0.7152,
-                0.0722
-            )
-        );
-
-    float warmMask =
-        smoothstep(
-            0.20,
-            0.90,
-            luminance
-        ) *
-        day;
-
-    color +=
-        vec3(
-            0.018,
-            0.008,
-            -0.004
-        ) *
-        warmMask;
-
-    return color;
-}
-
-
-// ============================================================
-// MAIN
-// ============================================================
+SAMPLER2D_AUTOREG(s_LightMapTexture);
 
 void main() {
-
-
-// ============================================================
-// DEPTH
-// ============================================================
-
-#if defined(DEPTH_ONLY_OPAQUE) || defined(DEPTH_ONLY)
-
-    gl_FragColor =
-        vec4(
-            1.0
-        );
-
+  #if defined(DEPTH_ONLY_OPAQUE) || defined(DEPTH_ONLY) || defined(INSTANCING)
+    gl_FragColor = vec4(1.0,1.0,1.0,1.0);
     return;
+  #endif
 
-#endif
+  vec4 diffuse = texture2D(s_MatTexture, v_texcoord0);
+  vec4 color = v_color0;
 
-
-// ============================================================
-// MATERIAL TEXTURE
-// ============================================================
-
-    vec4 diffuse =
-        texture2D(
-            s_MatTexture,
-            v_texcoord0
-        );
-
-
-// ============================================================
-// VERTEX COLOR
-// ============================================================
-
-    diffuse.rgb *=
-        v_color.rgb;
-
-    diffuse.a *=
-        v_color.a;
-
-
-// ============================================================
-// ALPHA TEST
-// ============================================================
-
-#ifdef ALPHA_TEST
-
-    if (
-        diffuse.a <
-        0.5
-    ) {
-
-        discard;
+  #ifdef ALPHA_TEST
+    if (diffuse.a < 0.6) {
+      discard;
     }
+  #endif
 
-#endif
+  #if defined(SEASONS) && (defined(OPAQUE) || defined(ALPHA_TEST))
+    diffuse.rgb *= mix(vec3(1.0,1.0,1.0), texture2D(s_SeasonsTexture, v_color1.xy).rgb * 2.0, v_color1.z);
+  #endif
 
+  vec3 glow = nlGlow(s_MatTexture, v_texcoord0, v_extra.a);
 
-// ============================================================
-// SEASONS
-// ============================================================
+  diffuse.rgb *= diffuse.rgb;
 
-#if defined(SEASONS)
+  #if defined(TRANSPARENT) && !(defined(SEASONS) || defined(RENDER_AS_BILLBOARDS))
+    if (v_extra.b > 0.9) {
+      diffuse.rgb = vec3_splat(1.0 - NL_WATER_TEX_OPACITY*(1.0 - diffuse.b*1.8));
+      diffuse.a = color.a;
+    }
+  #else
+    diffuse.a = 1.0;
+  #endif
 
-    vec3 seasonsColor =
-        texture2D(
-            s_SeasonsTexture,
-            v_texcoord0
-        ).rgb;
+  diffuse.rgb *= color.rgb;
+  diffuse.rgb += glow;
 
-    diffuse.rgb *=
-        seasonsColor;
+  if (v_extra.b > 0.9) {
+    diffuse.rgb += v_refl.rgb*v_refl.a;
+  } else if (v_refl.a > 0.0) {
+    // reflective effect - only on xz plane
+    float dy = abs(dFdy(v_extra.g));
+    if (dy < 0.0002) {
+      float mask = v_refl.a*(clamp(v_extra.r*10.0,8.2,8.8)-7.8);
+      diffuse.rgb *= 1.0 - 0.6*mask;
+      diffuse.rgb += v_refl.rgb*mask;
+    }
+  }
 
-#endif
+  diffuse.rgb = mix(diffuse.rgb, v_fog.rgb, v_fog.a);
 
+  diffuse.rgb = colorCorrection(diffuse.rgb);
 
-// ============================================================
-// GOLDEN HOUR LIGHTING
-// ============================================================
-
-    diffuse.rgb =
-        goldenHourLighting(
-            diffuse.rgb,
-            v_lightmapUV
-        );
-
-
-// ============================================================
-// NEWB COLOR CORRECTION
-// ============================================================
-
-    diffuse.rgb =
-        colorCorrection(
-            diffuse.rgb
-        );
-
-
-// ============================================================
-// OUTPUT
-// ============================================================
-
-    gl_FragColor =
-        diffuse;
+  gl_FragColor = diffuse;
 }
