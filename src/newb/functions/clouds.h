@@ -9,7 +9,7 @@
 // SIMPLE CLOUDS 2D NOISE
 // ============================================================================
 
-float cloudNoise2D(vec2 p, highp float t, float rain) {
+float cloudNoise2D(vec2 p, float t, float rain) {
     t *= NL_CLOUD1_SPEED;
 
     p += t;
@@ -44,7 +44,7 @@ float cloudNoise2D(vec2 p, highp float t, float rain) {
 vec4 renderCloudsSimple(
     nl_skycolor skycol,
     vec3 pos,
-    highp float t,
+    float t,
     float rain
 ) {
     pos.xz *= NL_CLOUD1_SCALE;
@@ -521,7 +521,7 @@ vec3 getAurora(
         // Uses existing noisevoxels sampler from the material system
 
         float noise =
-            texture2D(
+            texture(
                 noisevoxels,
                 planePos
             ).r;
@@ -548,18 +548,20 @@ vec3 getAurora(
 
         // Secondary noise layers
 
+        vec2 auroraOffset = vec2(auroraAnimate, auroraAnimate);
+
         noise *=
-            texture2D(
+            texture(
                 noisevoxels,
                 planePos * 8.0 +
-                auroraAnimate
+                auroraOffset
             ).b;
 
         noise *=
-            texture2D(
+            texture(
                 noisevoxels,
                 planePos -
-                auroraAnimate
+                auroraOffset
             ).g;
 
 
@@ -727,7 +729,7 @@ vec4 nlCloudAuroraReflection(
     vec3 viewDir,
     vec3 wPos,
     vec3 CAMERA_POS,
-    highp float t
+    float t
 ) {
     vec2 cloudPos =
         wPos.xz;
