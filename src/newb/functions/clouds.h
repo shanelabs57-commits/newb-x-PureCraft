@@ -9,7 +9,7 @@
 // SIMPLE CLOUDS 2D NOISE
 // ============================================================================
 
-float cloudNoise2D(vec2 p, float t, float rain) {
+float cloudNoise2D(vec2 p, highp float t, float rain) {
     t *= NL_CLOUD1_SPEED;
 
     p += t;
@@ -44,7 +44,7 @@ float cloudNoise2D(vec2 p, float t, float rain) {
 vec4 renderCloudsSimple(
     nl_skycolor skycol,
     vec3 pos,
-    float t,
+    highp float t,
     float rain
 ) {
     pos.xz *= NL_CLOUD1_SCALE;
@@ -216,15 +216,12 @@ vec4 renderCloudsRounded(
         d.x;
 
     if (vPos.y < 0.0) {
-        d.y =
-            1.0 -
-            d.y;
+        d.y = 1.0 - d.y;
     }
 
     vec4 col =
         vec4(
-            zenithCol +
-            horizonCol,
+            zenithCol + horizonCol,
             d.x
         );
 
@@ -297,8 +294,6 @@ vec4 renderClouds(
     p *= scale;
     t *= velocity;
 
-    // Layer 1
-
     float a =
         cloudsNoiseVr(
             p,
@@ -308,12 +303,9 @@ vec4 renderClouds(
     float b =
         cloudsNoiseVr(
             p +
-            NL_CLOUD3_SHADOW_OFFSET *
-            scale,
+            NL_CLOUD3_SHADOW_OFFSET * scale,
             t
         );
-
-    // Layer 2
 
     p =
         1.4 * p.yx +
@@ -330,8 +322,7 @@ vec4 renderClouds(
     float d =
         cloudsNoiseVr(
             p +
-            NL_CLOUD3_SHADOW_OFFSET *
-            scale,
+            NL_CLOUD3_SHADOW_OFFSET * scale,
             t
         );
 
@@ -352,8 +343,6 @@ vec4 renderClouds(
             tr.y,
             c
         );
-
-    // Shadows
 
     b *=
         smoothstep(
@@ -409,7 +398,6 @@ vec4 renderClouds(
 
 #ifdef NL_AURORA
 
-
 float auroraPow2(float x) {
     return x * x;
 }
@@ -454,11 +442,11 @@ vec3 getAurora(
         VdotU * 0.9;
 
     if (visibility <= 1.0) {
-        return vec3(0.0);
+        return vec3(0.0, 0.0, 0.0);
     }
 
     vec3 aurora =
-        vec3(0.0);
+        vec3(0.0, 0.0, 0.0);
 
     vec3 wpos =
         vDir;
@@ -470,25 +458,20 @@ vec3 getAurora(
         );
 
     vec2 cameraPosM =
-        vec2(0.0);
+        vec2(0.0, 0.0);
 
     cameraPosM.x +=
         time * 10.0;
 
     const int sampleCount = 10;
-    const int sampleCountP = sampleCount + 10;
+    const int sampleCountP = 20;
 
     float ditherM =
         dither +
         10.0;
 
-    float auroraAnimate =
-        time * 0.0;
+    float auroraAnimate = 0.0;
 
-
-    // ========================================================================
-    // MULTI-LAYER AURORA SAMPLING
-    // ========================================================================
 
     for (
         int i = 0;
@@ -517,17 +500,11 @@ vec3 getAurora(
         planePos *=
             0.0007;
 
-
-        // Uses existing noisevoxels sampler from the material system
-
         float noise =
-            texture(
+            texture2D(
                 noisevoxels,
                 planePos
             ).r;
-
-
-        // Aurora curtain sharpening
 
         noise =
             auroraPow2(
@@ -545,32 +522,23 @@ vec3 getAurora(
                 )
             );
 
-
-        // Secondary noise layers
-
-        vec2 auroraOffset = vec2(auroraAnimate, auroraAnimate);
-
         noise *=
-            texture(
+            texture2D(
                 noisevoxels,
                 planePos * 8.0 +
-                auroraOffset
+                auroraAnimate
             ).b;
 
         noise *=
-            texture(
+            texture2D(
                 noisevoxels,
                 planePos -
-                auroraOffset
+                auroraAnimate
             ).g;
-
 
         float currentM =
             1.0 -
             current;
-
-
-        // Aurora colors
 
         vec3 auroraDark =
             vec3(
@@ -586,14 +554,12 @@ vec3 getAurora(
                 2.80
             );
 
-
         float colorMix =
             auroraPow2(
                 auroraPow2(
                     currentM
                 )
             );
-
 
         vec3 auroraColor =
             mix(
@@ -602,17 +568,14 @@ vec3 getAurora(
                 colorMix
             );
 
-
         aurora +=
             noise *
             currentM *
             auroraColor;
     }
 
-
     aurora *=
         2.8;
-
 
     return
         aurora *
@@ -622,7 +585,7 @@ vec3 getAurora(
 
 
 // ============================================================================
-// NEWB AURORA INTEGRATION
+// AURORA INTEGRATION
 // ============================================================================
 
 vec4 renderAurora(
@@ -640,9 +603,6 @@ vec4 renderAurora(
     vec3 vDir =
         normalize(p);
 
-
-    // Stable pseudo dither
-
     float dither =
         fract(
             sin(
@@ -657,7 +617,6 @@ vec4 renderAurora(
             43758.5453
         );
 
-
     vec3 aurora =
         getAurora(
             vDir,
@@ -665,34 +624,21 @@ vec4 renderAurora(
             dither
         );
 
-
-    // Night mask
-
     float mask =
         max(
             -dayFactor,
             0.0
         );
 
-    mask *=
-        mask;
-
-
-    // Rain reduces visibility
+    mask *= mask;
 
     mask *=
         1.0 -
         0.8 * rain;
 
-
-    // Config intensity
-
     aurora *=
         NL_AURORA *
         mask;
-
-
-    // Alpha
 
     float alpha =
         clamp(
@@ -708,7 +654,6 @@ vec4 renderAurora(
             0.0,
             1.0
         );
-
 
     return vec4(
         aurora,
@@ -729,7 +674,7 @@ vec4 nlCloudAuroraReflection(
     vec3 viewDir,
     vec3 wPos,
     vec3 CAMERA_POS,
-    float t
+    highp float t
 ) {
     vec2 cloudPos =
         wPos.xz;
@@ -745,7 +690,6 @@ vec4 nlCloudAuroraReflection(
         viewDir.xz /
         viewDir.y;
 
-
     float fade =
         clamp(
             2.0 -
@@ -755,13 +699,11 @@ vec4 nlCloudAuroraReflection(
             1.0
         );
 
-
     cloudPos +=
         CAMERA_POS.xz;
 
-
     vec4 refl =
-        vec4_splat(0.0);
+        vec4(0.0, 0.0, 0.0, 0.0);
 
 
 #ifdef NL_AURORA
@@ -778,10 +720,8 @@ vec4 nlCloudAuroraReflection(
             )
         );
 
-
     aurora.a *=
         fade;
-
 
     refl =
         vec4(
@@ -804,10 +744,8 @@ vec4 nlCloudAuroraReflection(
             env.rainFactor
         );
 
-
     clouds.a *=
         fade;
-
 
     refl =
         vec4(
@@ -824,7 +762,6 @@ vec4 nlCloudAuroraReflection(
         );
 
 #endif
-
 
     return refl;
 }
