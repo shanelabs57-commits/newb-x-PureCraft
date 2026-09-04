@@ -10,24 +10,30 @@
 // ============================================================================
 
 float cloudNoise2D(vec2 p, highp float t, float rain) {
-  t *= NL_CLOUD1_SPEED;
-  p += t;
-  p.y += 3.0*sin(0.3*p.x + 0.1*t);
+    t *= NL_CLOUD1_SPEED;
 
-  vec2 p0 = floor(p);
-  vec2 u = p-p0;
-  u *= u*(3.0-2.0*u);
+    p += t;
+    p.y += 3.0 * sin(0.3 * p.x + 0.1 * t);
 
-  float n = mix(
-    mix(rand(p0), rand(p0+vec2(1.0,0.0)), u.x),
-    mix(rand(p0+vec2(0.0,1.0)), rand(p0+vec2(1.0,1.0)), u.x),
-    u.y
-  );
+    vec2 p0 = floor(p);
+    vec2 u = p - p0;
 
-  n *= 0.5 + 0.5*sin(p.x*0.6 - 0.5*t)*sin(p.y*0.6 + 0.8*t);
-  n = min(n*(1.0+rain), 1.0);
+    u *= u * (3.0 - 2.0 * u);
 
-  return n*n;
+    float n = mix(
+        mix(rand(p0), rand(p0 + vec2(1.0, 0.0)), u.x),
+        mix(rand(p0 + vec2(0.0, 1.0)), rand(p0 + vec2(1.0, 1.0)), u.x),
+        u.y
+    );
+
+    n *= 0.5 +
+         0.5 *
+         sin(p.x * 0.6 - 0.5 * t) *
+         sin(p.y * 0.6 + 0.8 * t);
+
+    n = min(n * (1.0 + rain), 1.0);
+
+    return n * n;
 }
 
 
@@ -36,34 +42,33 @@ float cloudNoise2D(vec2 p, highp float t, float rain) {
 // ============================================================================
 
 vec4 renderCloudsSimple(
-  nl_skycolor skycol,
-  vec3 pos,
-  highp float t,
-  float rain
+    nl_skycolor skycol,
+    vec3 pos,
+    highp float t,
+    float rain
 ) {
+    pos.xz *= NL_CLOUD1_SCALE;
 
-  pos.xz *= NL_CLOUD1_SCALE;
+    float d = cloudNoise2D(
+        pos.xz,
+        t,
+        rain
+    );
 
-  float d = cloudNoise2D(
-    pos.xz,
-    t,
-    rain
-  );
+    vec4 col = vec4(
+        skycol.horizonEdge + skycol.zenith,
+        smoothstep(0.1, 0.6, d)
+    );
 
-  vec4 col = vec4(
-    skycol.horizonEdge + skycol.zenith,
-    smoothstep(0.1,0.6,d)
-  );
+    col.rgb +=
+        1.5 *
+        dot(col.rgb, vec3(0.3, 0.4, 0.3)) *
+        smoothstep(0.6, 0.2, d) *
+        col.a;
 
-  col.rgb +=
-    1.5*
-    dot(col.rgb, vec3(0.3,0.4,0.3))*
-    smoothstep(0.6,0.2,d)*
-    col.a;
+    col.rgb *= 1.0 - 0.8 * rain;
 
-  col.rgb *= 1.0 - 0.8*rain;
-
-  return col;
+    return col;
 }
 
 
@@ -72,173 +77,170 @@ vec4 renderCloudsSimple(
 // ============================================================================
 
 float cloudDf(
-  vec3 pos,
-  float rain,
-  vec2 boxiness
+    vec3 pos,
+    float rain,
+    vec2 boxiness
 ) {
+    boxiness *= 0.999;
 
-  boxiness *= 0.999;
+    vec2 p0 = floor(pos.xz);
 
-  vec2 p0 = floor(pos.xz);
-
-  vec2 u = max(
-    (pos.xz-p0-boxiness.x)/
-    (1.0-boxiness.x),
-    0.0
-  );
-
-  u *= u*(3.0 - 2.0*u);
-
-  vec4 r = vec4(
-    rand(p0),
-    rand(p0+vec2(1.0,0.0)),
-    rand(p0+vec2(1.0,1.0)),
-    rand(p0+vec2(0.0,1.0))
-  );
-
-  r = smoothstep(
-    0.1001+0.2*rain,
-    0.1+0.2*rain*rain,
-    r
-  );
-
-  float n = mix(
-    mix(r.x,r.y,u.x),
-    mix(r.w,r.z,u.x),
-    u.y
-  );
-
-  n *=
-    1.0 -
-    1.5*
-    smoothstep(
-      boxiness.y,
-      2.0-boxiness.y,
-      2.0*abs(pos.y-0.5)
+    vec2 u = max(
+        (pos.xz - p0 - boxiness.x) /
+        (1.0 - boxiness.x),
+        0.0
     );
 
-  n = max(
-    1.25*(n-0.2),
-    0.0
-  );
+    u *= u * (3.0 - 2.0 * u);
 
-  n *= n*(3.0 - 2.0*n);
+    vec4 r = vec4(
+        rand(p0),
+        rand(p0 + vec2(1.0, 0.0)),
+        rand(p0 + vec2(1.0, 1.0)),
+        rand(p0 + vec2(0.0, 1.0))
+    );
 
-  return n;
+    r = smoothstep(
+        0.1001 + 0.2 * rain,
+        0.1 + 0.2 * rain * rain,
+        r
+    );
+
+    float n = mix(
+        mix(r.x, r.y, u.x),
+        mix(r.w, r.z, u.x),
+        u.y
+    );
+
+    n *=
+        1.0 -
+        1.5 *
+        smoothstep(
+            boxiness.y,
+            2.0 - boxiness.y,
+            2.0 * abs(pos.y - 0.5)
+        );
+
+    n = max(
+        1.25 * (n - 0.2),
+        0.0
+    );
+
+    n *= n * (3.0 - 2.0 * n);
+
+    return n;
 }
 
 
 vec4 renderCloudsRounded(
-  vec3 vDir,
-  vec3 vPos,
-  float rain,
-  float time,
-  vec3 horizonCol,
-  vec3 zenithCol,
-  const int steps,
-  const float thickness,
-  const float thickness_rain,
-  const float speed,
-  const vec2 scale,
-  const float density,
-  const vec2 boxiness
+    vec3 vDir,
+    vec3 vPos,
+    float rain,
+    float time,
+    vec3 horizonCol,
+    vec3 zenithCol,
+    const int steps,
+    const float thickness,
+    const float thickness_rain,
+    const float speed,
+    const vec2 scale,
+    const float density,
+    const vec2 boxiness
 ) {
+    float height =
+        7.0 * mix(
+            thickness,
+            thickness_rain,
+            rain
+        );
 
-  float height =
-    7.0*mix(
-      thickness,
-      thickness_rain,
-      rain
-    );
+    float stepsf = float(steps);
 
-  float stepsf = float(steps);
+    vec3 deltaP;
 
-  vec3 deltaP;
+    deltaP.y = 1.0;
 
-  deltaP.y = 1.0;
+    deltaP.xz =
+        height *
+        scale *
+        vDir.xz /
+        (0.02 + 0.98 * abs(vDir.y));
 
-  deltaP.xz =
-    height*
-    scale*
-    vDir.xz/
-    (0.02+0.98*abs(vDir.y));
+    vec3 pos;
 
-  vec3 pos;
+    pos.y = 0.0;
 
-  pos.y = 0.0;
-
-  pos.xz =
-    scale*
-    (
-      vPos.xz +
-      vec2(1.0,0.5)*
-      (time*speed)
-    );
-
-  pos += deltaP;
-
-  deltaP /= -stepsf;
-
-  vec2 d = vec2(0.0,1.0);
-
-  for (int i=1; i<=steps; i++) {
-
-    float m =
-      cloudDf(
-        pos,
-        rain,
-        boxiness
-      );
-
-    d.x += m;
-
-    d.y =
-      mix(
-        d.y,
-        pos.y,
-        m
-      );
+    pos.xz =
+        scale *
+        (
+            vPos.xz +
+            vec2(1.0, 0.5) *
+            (time * speed)
+        );
 
     pos += deltaP;
-  }
 
-  d.x *= smoothstep(
-    0.03,
-    0.1,
-    d.x
-  );
+    deltaP /= -stepsf;
 
-  d.x /=
-    (stepsf/density) +
-    d.x;
+    vec2 d = vec2(0.0, 1.0);
 
-  if (vPos.y < 0.0) {
+    for (int i = 1; i <= steps; i++) {
 
-    d.y =
-      1.0 -
-      d.y;
-  }
+        float m =
+            cloudDf(
+                pos,
+                rain,
+                boxiness
+            );
 
-  vec4 col =
-    vec4(
-      zenithCol +
-      horizonCol,
-      d.x
+        d.x += m;
+
+        d.y =
+            mix(
+                d.y,
+                pos.y,
+                m
+            );
+
+        pos += deltaP;
+    }
+
+    d.x *= smoothstep(
+        0.03,
+        0.1,
+        d.x
     );
 
-  col.rgb +=
-    dot(
-      col.rgb,
-      vec3(0.3,0.4,0.3)
-    )*
-    d.y*
-    d.y;
+    d.x /=
+        (stepsf / density) +
+        d.x;
 
-  col.rgb *=
-    1.0 -
-    0.8*rain;
+    if (vPos.y < 0.0) {
+        d.y =
+            1.0 -
+            d.y;
+    }
 
-  return col;
+    vec4 col =
+        vec4(
+            zenithCol +
+            horizonCol,
+            d.x
+        );
+
+    col.rgb +=
+        dot(
+            col.rgb,
+            vec3(0.3, 0.4, 0.3)
+        ) *
+        d.y *
+        d.y;
+
+    col.rgb *=
+        1.0 -
+        0.8 * rain;
+
+    return col;
 }
 
 
@@ -247,177 +249,179 @@ vec4 renderCloudsRounded(
 // ============================================================================
 
 float cloudsNoiseVr(
-  vec2 p,
-  float t
+    vec2 p,
+    float t
 ) {
+    float n =
+        fastVoronoi2(
+            p + t,
+            1.8
+        );
 
-  float n =
-    fastVoronoi2(
-      p+t,
-      1.8
-    );
+    n *=
+        fastVoronoi2(
+            3.0 * p + t,
+            1.5
+        );
 
-  n *=
-    fastVoronoi2(
-      3.0*p+t,
-      1.5
-    );
+    n *=
+        fastVoronoi2(
+            9.0 * p + t,
+            0.4
+        );
 
-  n *=
-    fastVoronoi2(
-      9.0*p+t,
-      0.4
-    );
+    n *=
+        fastVoronoi2(
+            27.0 * p + t,
+            0.1
+        );
 
-  n *=
-    fastVoronoi2(
-      27.0*p+t,
-      0.1
-    );
-
-  return n*n;
+    return n * n;
 }
 
 
 // ============================================================================
-// CLOUD RENDERING
+// REALISTIC CLOUD RENDERING
 // ============================================================================
 
 vec4 renderClouds(
-  vec2 p,
-  float t,
-  float rain,
-  vec3 horizonCol,
-  vec3 zenithCol,
-  const vec2 scale,
-  const float velocity,
-  const float shadow
+    vec2 p,
+    float t,
+    float rain,
+    vec3 horizonCol,
+    vec3 zenithCol,
+    const vec2 scale,
+    const float velocity,
+    const float shadow
 ) {
+    p *= scale;
+    t *= velocity;
 
-  p *= scale;
-  t *= velocity;
+    // Layer 1
 
-  float a =
-    cloudsNoiseVr(
-      p,
-      t
-    );
+    float a =
+        cloudsNoiseVr(
+            p,
+            t
+        );
 
-  float b =
-    cloudsNoiseVr(
-      p +
-      NL_CLOUD3_SHADOW_OFFSET*
-      scale,
-      t
-    );
+    float b =
+        cloudsNoiseVr(
+            p +
+            NL_CLOUD3_SHADOW_OFFSET *
+            scale,
+            t
+        );
 
-  p =
-    1.4*p.yx +
-    vec2(7.8,9.2);
+    // Layer 2
 
-  t *= 0.5;
+    p =
+        1.4 * p.yx +
+        vec2(7.8, 9.2);
 
-  float c =
-    cloudsNoiseVr(
-      p,
-      t
-    );
+    t *= 0.5;
 
-  float d =
-    cloudsNoiseVr(
-      p +
-      NL_CLOUD3_SHADOW_OFFSET*
-      scale,
-      t
-    );
+    float c =
+        cloudsNoiseVr(
+            p,
+            t
+        );
 
-  vec2 tr =
-    vec2(0.6,0.7) -
-    0.12*rain;
+    float d =
+        cloudsNoiseVr(
+            p +
+            NL_CLOUD3_SHADOW_OFFSET *
+            scale,
+            t
+        );
 
-  a =
-    smoothstep(
-      tr.x,
-      tr.y,
-      a
-    );
+    vec2 tr =
+        vec2(0.6, 0.7) -
+        0.12 * rain;
 
-  c =
-    smoothstep(
-      tr.x,
-      tr.y,
-      c
-    );
+    a =
+        smoothstep(
+            tr.x,
+            tr.y,
+            a
+        );
 
-  b *=
-    smoothstep(
-      0.2,
-      0.8,
-      b
-    );
+    c =
+        smoothstep(
+            tr.x,
+            tr.y,
+            c
+        );
 
-  d *=
-    smoothstep(
-      0.2,
-      0.8,
-      d
-    );
+    // Shadows
 
-  vec4 col;
+    b *=
+        smoothstep(
+            0.2,
+            0.8,
+            b
+        );
 
-  col.a =
-    a +
-    c*(1.0-a);
+    d *=
+        smoothstep(
+            0.2,
+            0.8,
+            d
+        );
 
-  col.rgb =
-    horizonCol +
-    horizonCol.ggg;
+    vec4 col;
 
-  col.rgb =
-    mix(
-      col.rgb,
-      0.5*
-      (
-        zenithCol +
-        zenithCol.ggg
-      ),
-      shadow*
-      mix(
-        b,
-        d,
-        c
-      )
-    );
+    col.a =
+        a +
+        c * (1.0 - a);
 
-  col.rgb *=
-    1.0 -
-    0.7*rain;
+    col.rgb =
+        horizonCol +
+        horizonCol.ggg;
 
-  return col;
+    col.rgb =
+        mix(
+            col.rgb,
+            0.5 *
+            (
+                zenithCol +
+                zenithCol.ggg
+            ),
+            shadow *
+            mix(
+                b,
+                d,
+                c
+            )
+        );
+
+    col.rgb *=
+        1.0 -
+        0.7 * rain;
+
+    return col;
 }
 
 
 // ============================================================================
-// ENHANCED TEXTURE-BASED AURORA
+// ENHANCED AURORA
 // ============================================================================
 
 #ifdef NL_AURORA
 
-uniform sampler2D noisevoxels;
-
 
 float auroraPow2(float x) {
-  return x*x;
+    return x * x;
 }
 
 
 float auroraClamp01(float x) {
-  return clamp(x,0.0,1.0);
+    return clamp(x, 0.0, 1.0);
 }
 
 
 float auroraSqrt(float x) {
-  return sqrt(max(x,0.0));
+    return sqrt(max(x, 0.0));
 }
 
 
@@ -426,318 +430,288 @@ float auroraSqrt(float x) {
 // ============================================================================
 
 vec3 getAurora(
-  vec3 vDir,
-  float time,
-  float dither
+    vec3 vDir,
+    float time,
+    float dither
 ) {
+    float VdotU =
+        clamp(
+            vDir.y,
+            0.0,
+            1.0
+        );
 
-  float VdotU =
-    clamp(
-      vDir.y,
-      0.0,
-      1.0
-    );
-
-  float visibility =
-    auroraSqrt(
-      auroraClamp01(
-        VdotU*4.5 -
-        0.225
-      )
-    );
-
-  visibility *=
-    4.0 -
-    VdotU*0.9;
-
-
-  if (visibility <= 1.0) {
-
-    return vec3(
-      0.0,
-      0.0,
-      0.0
-    );
-  }
-
-
-  vec3 aurora =
-    vec3(
-      0.0,
-      0.0,
-      0.0
-    );
-
-
-  vec3 wpos =
-    vDir;
-
-
-  wpos.xz /=
-    max(
-      wpos.y,
-      0.1
-    );
-
-
-  // Aurora movement
-
-  vec2 cameraPosM =
-    vec2(
-      0.0,
-      0.0
-    );
-
-
-  cameraPosM.x +=
-    time*10.0;
-
-
-  const int sampleCount = 10;
-
-  const int sampleCountP =
-    sampleCount + 10;
-
-
-  float ditherM =
-    dither +
-    10.0;
-
-
-  float auroraAnimate =
-    time*0.0;
-
-
-  // ========================================================================
-  // MULTI-LAYER AURORA SAMPLING
-  // ========================================================================
-
-  for (
-    int i=0;
-    i<sampleCount;
-    i++
-  ) {
-
-    float current =
-      auroraPow2(
-        (
-          float(i) +
-          ditherM
-        )/
-        float(sampleCountP)
-      );
-
-
-    vec2 planePos =
-      wpos.xz*
-      (
-        0.8+
-        current
-      )*
-      10.0+
-      cameraPosM;
-
-
-    planePos *=
-      0.0007;
-
-
-    float noise =
-      texture2D(
-        noisevoxels,
-        planePos
-      ).r;
-
-
-    noise =
-      auroraPow2(
-        auroraPow2(
-          auroraPow2(
-            auroraPow2(
-              1.0-
-              0.8*
-              abs(
-                noise-
-                0.5
-              )
+    float visibility =
+        auroraSqrt(
+            auroraClamp01(
+                VdotU * 4.5 -
+                0.225
             )
-          )
-        )
-      );
+        );
+
+    visibility *=
+        4.0 -
+        VdotU * 0.9;
+
+    if (visibility <= 1.0) {
+        return vec3(0.0);
+    }
+
+    vec3 aurora =
+        vec3(0.0);
+
+    vec3 wpos =
+        vDir;
+
+    wpos.xz /=
+        max(
+            wpos.y,
+            0.1
+        );
+
+    vec2 cameraPosM =
+        vec2(0.0);
+
+    cameraPosM.x +=
+        time * 10.0;
+
+    const int sampleCount = 10;
+    const int sampleCountP = sampleCount + 10;
+
+    float ditherM =
+        dither +
+        10.0;
+
+    float auroraAnimate =
+        time * 0.0;
 
 
-    vec2 auroraOffset =
-      vec2(
-        auroraAnimate,
-        auroraAnimate
-      );
+    // ========================================================================
+    // MULTI-LAYER AURORA SAMPLING
+    // ========================================================================
+
+    for (
+        int i = 0;
+        i < sampleCount;
+        i++
+    ) {
+
+        float current =
+            auroraPow2(
+                (
+                    float(i) +
+                    ditherM
+                ) /
+                float(sampleCountP)
+            );
+
+        vec2 planePos =
+            wpos.xz *
+            (
+                0.8 +
+                current
+            ) *
+            10.0 +
+            cameraPosM;
+
+        planePos *=
+            0.0007;
 
 
-    noise *=
-      texture2D(
-        noisevoxels,
-        planePos*8.0+
-        auroraOffset
-      ).b;
+        // Uses existing noisevoxels sampler from the material system
+
+        float noise =
+            texture2D(
+                noisevoxels,
+                planePos
+            ).r;
 
 
-    noise *=
-      texture2D(
-        noisevoxels,
-        planePos-
-        auroraOffset
-      ).g;
+        // Aurora curtain sharpening
+
+        noise =
+            auroraPow2(
+                auroraPow2(
+                    auroraPow2(
+                        auroraPow2(
+                            1.0 -
+                            0.8 *
+                            abs(
+                                noise -
+                                0.5
+                            )
+                        )
+                    )
+                )
+            );
 
 
-    float currentM =
-      1.0-
-      current;
+        // Secondary noise layers
+
+        noise *=
+            texture2D(
+                noisevoxels,
+                planePos * 8.0 +
+                auroraAnimate
+            ).b;
+
+        noise *=
+            texture2D(
+                noisevoxels,
+                planePos -
+                auroraAnimate
+            ).g;
 
 
-    vec3 auroraDark =
-      vec3(
-        0.035,
-        0.08,
-        0.55
-      );
+        float currentM =
+            1.0 -
+            current;
 
 
-    vec3 auroraBright =
-      vec3(
-        0.08,
-        0.45,
-        2.80
-      );
+        // Aurora colors
+
+        vec3 auroraDark =
+            vec3(
+                0.035,
+                0.08,
+                0.55
+            );
+
+        vec3 auroraBright =
+            vec3(
+                0.08,
+                0.45,
+                2.80
+            );
 
 
-    float colorMix =
-      auroraPow2(
-        auroraPow2(
-          currentM
-        )
-      );
+        float colorMix =
+            auroraPow2(
+                auroraPow2(
+                    currentM
+                )
+            );
 
 
-    vec3 auroraColor =
-      mix(
-        auroraDark,
-        auroraBright,
-        colorMix
-      );
+        vec3 auroraColor =
+            mix(
+                auroraDark,
+                auroraBright,
+                colorMix
+            );
 
 
-    aurora +=
-      noise*
-      currentM*
-      auroraColor;
-  }
+        aurora +=
+            noise *
+            currentM *
+            auroraColor;
+    }
 
 
-  aurora *=
-    2.8;
+    aurora *=
+        2.8;
 
 
-  return
-    aurora*
-    visibility/
-    float(sampleCount);
+    return
+        aurora *
+        visibility /
+        float(sampleCount);
 }
 
 
 // ============================================================================
-// NEWB X AURORA INTEGRATION
+// NEWB AURORA INTEGRATION
 // ============================================================================
 
 vec4 renderAurora(
-  vec3 p,
-  float t,
-  float rain,
-  float dayFactor
+    vec3 p,
+    float t,
+    float rain,
+    float dayFactor
 ) {
+    t *=
+        NL_AURORA_VELOCITY;
 
-  t *=
-    NL_AURORA_VELOCITY;
+    p.xz *=
+        NL_AURORA_SCALE;
 
-
-  p.xz *=
-    NL_AURORA_SCALE;
-
-
-  vec3 vDir =
-    normalize(p);
+    vec3 vDir =
+        normalize(p);
 
 
-  float dither =
-    fract(
-      sin(
-        dot(
-          p.xz,
-          vec2(
-            12.9898,
-            78.233
-          )
-        )
-      )*
-      43758.5453
-    );
+    // Stable pseudo dither
+
+    float dither =
+        fract(
+            sin(
+                dot(
+                    p.xz,
+                    vec2(
+                        12.9898,
+                        78.233
+                    )
+                )
+            ) *
+            43758.5453
+        );
 
 
-  vec3 aurora =
-    getAurora(
-      vDir,
-      t,
-      dither
-    );
+    vec3 aurora =
+        getAurora(
+            vDir,
+            t,
+            dither
+        );
 
 
-  /*
-   * NIGHT MASK
-   *
-   * Compatible with NEWB's dayFactor.
-   */
+    // Night mask
 
-  float mask =
-    smoothstep(
-      0.2,
-      -0.2,
-      dayFactor
-    );
+    float mask =
+        max(
+            -dayFactor,
+            0.0
+        );
+
+    mask *=
+        mask;
 
 
-  /*
-   * Rain reduces aurora visibility.
-   */
+    // Rain reduces visibility
 
-  mask *=
-    1.0-
-    0.8*rain;
+    mask *=
+        1.0 -
+        0.8 * rain;
 
 
-  aurora *=
-    NL_AURORA*
-    mask;
+    // Config intensity
+
+    aurora *=
+        NL_AURORA *
+        mask;
 
 
-  float alpha =
-    clamp(
-      dot(
+    // Alpha
+
+    float alpha =
+        clamp(
+            dot(
+                aurora,
+                vec3(
+                    0.2126,
+                    0.7152,
+                    0.0722
+                )
+            ) *
+            0.35,
+            0.0,
+            1.0
+        );
+
+
+    return vec4(
         aurora,
-        vec3(
-          0.2126,
-          0.7152,
-          0.0722
-        )
-      )*
-      0.35,
-      0.0,
-      1.0
+        alpha
     );
-
-
-  return vec4(
-    aurora,
-    alpha
-  );
 }
 
 #endif
@@ -748,107 +722,109 @@ vec4 renderAurora(
 // ============================================================================
 
 vec4 nlCloudAuroraReflection(
-  nl_skycolor skycol,
-  nl_environment env,
-  vec3 viewDir,
-  vec3 wPos,
-  vec3 CAMERA_POS,
-  highp float t
+    nl_skycolor skycol,
+    nl_environment env,
+    vec3 viewDir,
+    vec3 wPos,
+    vec3 CAMERA_POS,
+    highp float t
 ) {
+    vec2 cloudPos =
+        wPos.xz;
 
-  vec2 cloudPos =
-    wPos.xz;
-
-
-  cloudPos +=
-    (
-      187.0-
-      (
-        wPos.y+
-        CAMERA_POS.y
-      )
-    )*
-    viewDir.xz/
-    viewDir.y;
+    cloudPos +=
+        (
+            187.0 -
+            (
+                wPos.y +
+                CAMERA_POS.y
+            )
+        ) *
+        viewDir.xz /
+        viewDir.y;
 
 
-  float fade =
-    clamp(
-      2.0-
-      0.005*
-      length(cloudPos),
-      0.0,
-      1.0
-    );
+    float fade =
+        clamp(
+            2.0 -
+            0.005 *
+            length(cloudPos),
+            0.0,
+            1.0
+        );
 
 
-  cloudPos +=
-    CAMERA_POS.xz;
+    cloudPos +=
+        CAMERA_POS.xz;
 
 
-  vec4 refl =
-    vec4_splat(0.0);
+    vec4 refl =
+        vec4_splat(0.0);
 
 
-  #ifdef NL_AURORA
+#ifdef NL_AURORA
 
     vec4 aurora =
-      renderAurora(
-        cloudPos.xyy,
-        t,
-        env.rainFactor,
-        env.dayFactor
-      );
+        renderAurora(
+            cloudPos.xyy,
+            t,
+            env.rainFactor,
+            smoothstep(
+                0.2,
+                -0.2,
+                env.dayFactor
+            )
+        );
 
 
     aurora.a *=
-      fade;
+        fade;
 
 
     refl =
-      vec4(
-        2.0*
-        aurora.rgb*
-        aurora.a,
-        aurora.a
-      );
+        vec4(
+            2.0 *
+            aurora.rgb *
+            aurora.a,
+            aurora.a
+        );
 
-  #endif
+#endif
 
 
-  #if NL_CLOUD_TYPE == 1
+#if NL_CLOUD_TYPE == 1
 
     vec4 clouds =
-      renderCloudsSimple(
-        skycol,
-        cloudPos.xyy,
-        t,
-        env.rainFactor
-      );
+        renderCloudsSimple(
+            skycol,
+            cloudPos.xyy,
+            t,
+            env.rainFactor
+        );
 
 
     clouds.a *=
-      fade;
+        fade;
 
 
     refl =
-      vec4(
-        mix(
-          refl.rgb,
-          clouds.rgb,
-          clouds.a
-        ),
-        min(
-          refl.a+
-          clouds.a,
-          1.0
-        )
-      );
+        vec4(
+            mix(
+                refl.rgb,
+                clouds.rgb,
+                clouds.a
+            ),
+            min(
+                refl.a +
+                clouds.a,
+                1.0
+            )
+        );
 
-  #endif
+#endif
 
 
-  return refl;
+    return refl;
 }
 
 #endif
