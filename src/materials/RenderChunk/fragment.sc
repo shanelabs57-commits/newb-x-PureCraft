@@ -5,7 +5,6 @@ $input v_color, v_texcoord0, v_lightmapUV
 
 SAMPLER2D_AUTOREG(s_MatTexture);
 SAMPLER2D_AUTOREG(s_SeasonsTexture);
-SAMPLER2D_AUTOREG(s_LightMapTexture);
 
 
 // ============================================================
@@ -24,7 +23,6 @@ vec3 goldenHourLighting(
             1.0
         );
 
-
     float day =
         smoothstep(
             0.30,
@@ -32,7 +30,7 @@ vec3 goldenHourLighting(
             skyLight
         );
 
-
+    // Warm sunlight
     vec3 warmSun =
         vec3(
             1.075,
@@ -40,14 +38,13 @@ vec3 goldenHourLighting(
             0.900
         );
 
-
+    // Slightly brighter night
     vec3 nightLift =
         vec3(
             1.045,
             1.035,
             1.015
         );
-
 
     color *=
         mix(
@@ -56,24 +53,23 @@ vec3 goldenHourLighting(
             day
         );
 
-
     float night =
         1.0 -
         day;
 
-
+    // Small night brightness boost
     color *=
         1.0 +
         0.075 *
         night;
 
-
+    // Small daytime brightness boost
     color *=
         1.0 +
         0.035 *
         day;
 
-
+    // Cinematic warmth
     float luminance =
         dot(
             color,
@@ -84,7 +80,6 @@ vec3 goldenHourLighting(
             )
         );
 
-
     float warmMask =
         smoothstep(
             0.20,
@@ -93,7 +88,6 @@ vec3 goldenHourLighting(
         ) *
         day;
 
-
     color +=
         vec3(
             0.018,
@@ -101,7 +95,6 @@ vec3 goldenHourLighting(
             -0.004
         ) *
         warmMask;
-
 
     return color;
 }
@@ -141,12 +134,19 @@ void main() {
         );
 
 
+// ============================================================
+// VERTEX COLOR
+// ============================================================
+
     diffuse.rgb *=
         v_color.rgb;
 
+    diffuse.a *=
+        v_color.a;
+
 
 // ============================================================
-// ALPHA
+// ALPHA TEST
 // ============================================================
 
 #ifdef ALPHA_TEST
@@ -168,11 +168,14 @@ void main() {
 
 #if defined(SEASONS)
 
-    diffuse.rgb *=
+    vec3 seasonsColor =
         texture2D(
             s_SeasonsTexture,
             v_texcoord0
         ).rgb;
+
+    diffuse.rgb *=
+        seasonsColor;
 
 #endif
 
